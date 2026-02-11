@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Formatter - Caltech Library Blog</title>
+
+    <!-- Pico CSS Framework -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <!-- SpringShare External Stylesheets for Preview -->
+    <link rel="stylesheet" href="https://static-assets-us.libguides.com/web/css3.23.3/lg-public-no-bs.min.css">
+    <link rel="stylesheet" href="https://libapps.s3.amazonaws.com/sites/64/include/libguides.css">
+
+    <!-- iCal.js for ICS file parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js"></script>
+
+    <!-- SheetJS for CSV/Excel parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* App-specific layout */
+        body { background: #f0f0f0; }
+        .app-container { max-width: 900px; margin: 0 auto; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .logo { text-align: center; margin-bottom: 1rem; }
+        .logo img { max-width: 300px; height: auto; }
+
+        /* Form inputs */
+        input, textarea, select { background: white; }
+        input::placeholder, textarea::placeholder { color: #aaa; }
+        input:focus, textarea:focus, select:focus { --pico-border-color: #2a8a99; border-color: #2a8a99; }
+
+        /* Buttons */
+        button, [type="submit"], [type="button"] { --pico-primary-background: #2a8a99; --pico-primary-border: #2a8a99; --pico-primary-hover-background: #1f6d79; --pico-primary-hover-border: #1f6d79; padding: 0.5rem 1rem; font-size: 0.9rem; }
+        .file-upload-btn { display: inline-block; background: #2a8a99; color: white; padding: 0.5rem 1rem; font-size: 0.9rem; border-radius: var(--pico-border-radius); cursor: pointer; }
+        .file-upload-btn:hover { background: #1f6d79; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--pico-muted-border-color); margin-bottom: 1rem; }
+        .tab { padding: 0.75rem 1.5rem; background: none; border: none; border-bottom: 4px solid transparent; cursor: pointer; margin: 0; color: #888; outline: none; box-shadow: none; }
+        .tab:hover { background: #f5f5f5; color: #111; outline: none; box-shadow: none; }
+        .tab:focus { outline: none; box-shadow: none; }
+        .tab.active { border-bottom-color: #f87924; color: #111; background: #f5f5f5; outline: none; box-shadow: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Form layout helpers */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .button-group { margin: 1.5rem 0; text-align: center; }
+        .button-group button { margin: 0 0.5rem; }
+
+        /* Status messages */
+        .status { display: none; padding: 1rem; border-radius: var(--pico-border-radius); margin: 1rem 0; }
+        .status.success { display: block; background: #d4edda; color: #155724; }
+        .status.error { display: block; background: #f8d7da; color: #721c24; }
+
+        /* Sections */
+        .step-box { border: none; padding: 1rem; margin-bottom: 0; background: white; }
+        .step-box + .step-box { border-top: 2px solid #eee; }
+        .step-header { margin-bottom: 0.5rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 1.1rem; }
+        /* Toggle button group (segmented control style) */
+        .toggle-group { display: inline-flex; border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); overflow: hidden; }
+        .toggle-btn { cursor: pointer; margin: 0; }
+        .toggle-btn input { display: none; }
+        .toggle-btn span { display: block; padding: 0.5rem 1rem; background: white; border-right: 1px solid var(--pico-muted-border-color); font-size: 0.9rem; }
+        .toggle-btn:last-child span { border-right: none; }
+        .toggle-btn input:checked + span { background: #2a8a99; color: white; }
+        .toggle-btn:hover span { background: #f0f0f0; }
+        .toggle-btn input:checked:hover + span { background: #1f6d79; }
+
+        /* Content box - light grey box with grey outline */
+        .content-box { padding: 1rem; background: #f7f9fb; border: 1px solid #ddd; border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
+        .content-box h4 { margin-top: 0; margin-bottom: 0.75rem; color: #555; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+
+        /* Link/Book entries */
+        .link-entry { padding: 1rem; background: white; border: 1px solid #ddd; border-radius: var(--pico-border-radius); margin-bottom: 1rem; position: relative; }
+        .link-entry h4 { margin-top: 0; margin-bottom: 0.75rem; color: #555; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+        .add-link-btn { background: none; border: none; color: #b54500; padding: 0; font-weight: bold; }
+        .add-link-btn:hover { text-decoration: underline; background: none; }
+        .remove-link-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.75rem; font-size: 0.8rem; }
+
+        /* Preview section */
+        .preview-section { display: none; margin: 2rem 0; padding: 1.5rem; border: 3px solid #2a8a99; border-radius: var(--pico-border-radius); background: white; }
+        .preview-section.show { display: block; }
+        .preview-container { max-height: 600px; overflow-y: auto; padding: 1rem; background: white; }
+
+        /* Code textarea */
+        textarea.code { font-family: monospace; font-size: 0.85rem; }
+
+        /* Preview content styles (for generated HTML output) */
+        .preview-container .book-item { padding: 1.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e0e0e0; }
+        .preview-container .book-item-odd { background: #f8f8fa; }
+        .preview-container .book-content { display: flex; gap: 1.25rem; align-items: flex-start; }
+        .preview-container .book-cover-img { width: 120px; height: auto; border-radius: 4px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); }
+        .preview-container .book-info { flex: 1; display: flex; flex-direction: column; gap: 0.75rem; }
+        .preview-container .book-title { font-size: 1.25rem; font-weight: bold; }
+        .preview-container .book-view-btn { display: inline-block; background: #2a8a99; color: white; padding: 0.35rem 1rem; border-radius: 3px; text-decoration: none; font-size: 0.9rem; width: fit-content; }
+
+        .preview-container .event-item { display: flex; gap: 1.25rem; padding: 1.25rem; margin-bottom: 1.25rem; background: #f7f9fb; border: 1px solid #e0e0e0; border-radius: 5px; }
+        .preview-container .event-date-box { flex-shrink: 0; width: 80px; height: 80px; background: #062e47; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .preview-container .event-day { font-size: 2rem; font-weight: bold; line-height: 1; }
+        .preview-container .event-month { font-size: 0.9rem; text-transform: uppercase; margin-top: 4px; }
+        .preview-container .event-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .preview-container .event-meta { font-size: 0.95rem; margin-bottom: 0.75rem; line-height: 1.6; }
+
+        .preview-container .link-section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e0e0e0; }
+        .preview-container .link-item { padding: 1rem; margin-bottom: 0.75rem; border: 1px solid #e0e0e0; border-radius: 5px; }
+        .preview-container .link-title::before { content: "🔗 "; }
+
+        .preview-container .book-grid { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+        .preview-container .book-grid-item { width: 150px; text-align: center; }
+        .preview-container .book-grid-cover img { width: 120px; border-radius: 4px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); }
+        .preview-container .book-grid-title { font-weight: bold; font-size: 0.95rem; margin: 0.5rem 0 0.25rem; }
+        .preview-container .book-grid-author { font-size: 0.85rem; color: #666; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <div class="app-container">
+            <div class="logo">
+            <img src="blog.png" alt="Blog Buddy">
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('books')">📚 Books</button>
+            <button class="tab" onclick="switchTab('event')">📅 Event</button>
+            <button class="tab" onclick="switchTab('links')">🔗 Links</button>
+        </div>
+
+        <!-- Books Tab -->
+        <div id="books-tab" class="tab-content active">
+            <div class="step-box">
+                <div class="step-header"><strong>Step 1:</strong> Choose Your Layout</div><br>
+                <div class="content-box">
+                    <h4>How should your booklist stack?</h4>
+                    <div class="toggle-group">
+                        <label class="toggle-btn"><input type="radio" name="book-layout" value="vertical" checked><span>Vertical List</span></label>
+                        <label class="toggle-btn"><input type="radio" name="book-layout" value="horizontal"><span>Horizontal Grid</span></label>
+                    </div>
+                <br></div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-header"><strong>Step 2:</strong>Enter Book Details</div><br>
+                <div class="content-box">
+                    <h4>ISBN Fetch</h4>
+                    <textarea id="isbn-input" style="min-height: 100px;" placeholder="Enter ISBNs separated by commas or line breaks"></textarea>
+                    <div class="button-group">
+                        <button onclick="fetchBooksFromISBNs()">Fetch Book Details</button>
+                    </div>
+                    <div id="books-upload-status" class="status"></div>
+                </div>
+
+                <div style="text-align: center; margin: 1rem 0; color: #999;">
+                    <strong>— OR —</strong>
+                </div>
+                <div class="content-box">
+                 <h4>Manual Entry</h4> 
+
+                <div id="books-container">
+                    <div class="link-entry" data-book-index="0">
+                        <h4>Book 1</h4>
+                        <div class="form-group">
+                            <label>Title:*</label>
+                            <input type="text" class="book-title-input" placeholder="Book title">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Author:</label>
+                                <input type="text" class="book-author-input" placeholder="Author name">
+                            </div>
+                            <div class="form-group">
+                                <label>ISBN:</label>
+                                <input type="text" class="book-isbn-input" placeholder="ISBN">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Image URL:</label>
+                            <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/...">
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Alt Text:</label>
+                            <input type="text" class="book-alt-input" placeholder="e.g., Book cover of [Title] by [Author]">
+                        </div>
+                        <div class="form-group">
+                            <label>Call Number (optional):</label>
+                            <input type="text" class="book-callnumber-input" placeholder="Call number">
+                        </div>
+                        <div class="form-group">
+                            <label>URL/Permalink (optional):</label>
+                            <input type="url" class="book-url-input" placeholder="https://...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="add-link-btn" onclick="addBookEntry()">+ Add Another Book</button>
+                </div>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="formatBooks()">Format Book List</button>
+                    <button class="secondary" onclick="clearBooks()">Clear All</button>
+                </div>
+                <div id="books-status" class="status"></div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-header"><strong>Step 3:</strong> Retrieve Formatted HTML</div><br>
+                <div class="content-box">
+                    <h4>Copy and paste HTML into source tab:</h4>
+                <textarea id="books-output" class="code" placeholder="Formatted HTML will appear here..." readonly></textarea>
+
+                <div class="button-group">
+                    <button onclick="previewBooks()">Preview Styled HTML</button>
+                    <button class="secondary" onclick="copyBooks()">Copy to Clipboard</button>
+                </div>
+                </div>
+
+                <div id="books-preview" class="preview-section">
+                    <h2>Live Preview</h2>
+                    <p>This is how your book list will look on the blog:</p>
+                    <div id="books-preview-container" class="preview-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Tab -->
+        <div id="event-tab" class="tab-content">
+            <div class="step-box">
+                <div class="step-header"><strong>Step 1:</strong> Enter Event Details</div><br>
+                <div class="content-box">
+                    <h4>Quick Fill from .ics</h4>
+                    <label class="file-upload-btn">
+                        <input type="file" id="ics-file-input" accept=".ics" onchange="handleICSUpload(event)" hidden>
+                        <span>Upload File</span>
+                    </label>
+                    <div id="ics-status" class="status"></div>
+                </div>
+
+                <div style="text-align: center; margin: 1rem 0; color: #999;">
+                    <strong>— OR —</strong>
+                </div>
+
+                <div class="content-box">
+                    <h4>Manual Entry</h4>
+                    <div class="form-group">
+                        <label for="event-title">Event Title:*</label>
+                        <input type="text" id="event-title" placeholder="e.g., Author Reading & Q&A">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="event-date">Date:*</label>
+                            <input type="date" id="event-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="event-time">Time:</label>
+                            <input type="time" id="event-time">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event-location">Location:</label>
+                        <input type="text" id="event-location" placeholder="e.g., Sherman Fairchild Library">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event-description">Description:*</label>
+                        <textarea id="event-description" style="min-height: 120px;" placeholder="Describe the event..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event-link">Link (optional):</label>
+                        <input type="url" id="event-link" placeholder="https://...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event-link-text">Link Text (if link provided):</label>
+                        <input type="text" id="event-link-text" placeholder="e.g., Register Now, Learn More">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="formatEvent()">Format Event</button>
+                    <button class="secondary" onclick="clearEvent()">Clear</button>
+                </div>
+                <div id="event-status" class="status"></div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-header"><strong>Step 2:</strong> Retrieve Formatted HTML</div><br>
+                <div class="content-box">
+                    <h4>Copy and paste HTML into source tab:</h4>
+                <textarea id="event-output" class="code" placeholder="Formatted HTML will appear here..." readonly></textarea>
+
+                <div class="button-group">
+                    <button onclick="previewEvent()">Preview Styled HTML</button>
+                    <button class="secondary" onclick="copyEvent()">Copy to Clipboard</button>
+                </div>
+                </div>
+
+                <div id="event-preview" class="preview-section">
+                    <h2>Live Preview</h2>
+                    <p>This is how your event will look on the blog:</p>
+                    <div id="event-preview-container" class="preview-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Links Tab -->
+        <div id="links-tab" class="tab-content">
+            <div class="step-box">
+                <div class="step-header"><strong>Step 1:</strong> Enter Link Details</div><br>
+                <div class="content-box"><h4>Fetch Link Details</h4>
+                <textarea id="url-input" style="min-height: 80px;" placeholder="Enter URLs, one per line"></textarea>
+                <div class="button-group">
+                    <button onclick="fetchLinksFromURLs()">Fetch Link Details</button>
+                </div>
+                <div id="links-upload-status" class="status"></div>
+</div>
+                <div style="text-align: center; margin: 1rem 0; color: #999;">
+                    <strong>— OR —</strong>
+                </div>
+                <div class="content-box">
+                    <h4>Enter Manually</h4>
+                <div class="form-group">
+                    <label for="links-section-title">Section Title (optional):</label>
+                    <input type="text" id="links-section-title" placeholder="e.g., Related Resources, Further Reading">
+                
+                </div>
+
+                <div id="links-container">
+                    <div class="link-entry" data-link-index="0">
+                        <h4>Link 1</h4>
+                        <div class="form-group">
+                            <label>Link Title:*</label>
+                            <input type="text" class="link-title-input" placeholder="e.g., ACM Digital Library">
+                        </div>
+                        <div class="form-group">
+                            <label>URL:*</label>
+                            <input type="url" class="link-url-input" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="link-desc-input" style="min-height: 80px;" placeholder="Brief description of this resource..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="add-link-btn" onclick="addLinkEntry()">+ Add Another Link</button>
+                </div>
+</div>
+                <div class="button-group">
+                    <button onclick="formatLinks()">Format Links</button>
+                    <button class="secondary" onclick="clearLinks()">Clear All</button>
+                </div>
+                <div id="links-status" class="status"></div>
+            </div>
+
+            <div class="step-box">
+                <div class="step-header"><strong>Step 2:</strong> Retrieve Formatted HTML</div><br>
+                <div class="content-box">
+                <h4>Formatted HTML:</h4>
+                <textarea id="links-output" class="code" placeholder="Formatted HTML will appear here..." readonly></textarea>
+
+                <div class="button-group">
+                    <button onclick="previewLinks()">Preview Styled Output</button>
+                    <button class="secondary" onclick="copyLinks()">Copy to Clipboard</button>
+                </div>
+
+                <div id="links-preview" class="preview-section">
+                    <h2>Live Preview</h2>
+                    <p>This is how your links will look on the blog:</p>
+                    <div id="links-preview-container" class="preview-container"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+    </main>
+
+    <script>
+        let linkCounter = 1;
+        let bookCounter = 1;
+
+        // Tab Switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // ===== BOOKS TAB FUNCTIONS =====
+        function addBookEntry() {
+            bookCounter++;
+            const container = document.getElementById('books-container');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'link-entry';
+            newEntry.setAttribute('data-book-index', bookCounter);
+            newEntry.innerHTML = `
+                <h4>Book ${bookCounter + 1}</h4>
+                <button class="remove-link-btn" onclick="removeBookEntry(this)">Remove</button>
+                <div class="form-group">
+                    <label>Title:*</label>
+                    <input type="text" class="book-title-input" placeholder="Book title">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Author:</label>
+                        <input type="text" class="book-author-input" placeholder="Author name">
+                    </div>
+                    <div class="form-group">
+                        <label>ISBN:</label>
+                        <input type="text" class="book-isbn-input" placeholder="ISBN">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cover Image URL:</label>
+                    <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/...">
+                </div>
+                <div class="form-group">
+                    <label>Cover Alt Text:</label>
+                    <input type="text" class="book-alt-input" placeholder="e.g., Book cover of [Title] by [Author]">
+                </div>
+                <div class="form-group">
+                    <label>Call Number (optional):</label>
+                    <input type="text" class="book-callnumber-input" placeholder="Call number">
+                </div>
+                <div class="form-group">
+                    <label>URL/Permalink:</label>
+                    <input type="url" class="book-url-input" placeholder="https://...">
+                </div>
+            `;
+            container.appendChild(newEntry);
+        }
+
+        function removeBookEntry(button) {
+            button.parentElement.remove();
+        }
+
+        async function fetchBooksFromISBNs() {
+            const input = document.getElementById('isbn-input').value.trim();
+            const statusDiv = document.getElementById('books-upload-status');
+
+            if (!input) {
+                statusDiv.textContent = 'Please enter at least one ISBN.';
+                statusDiv.className = 'status error';
+                return;
+            }
+
+            // Parse ISBNs - split by comma, newline, or space
+            const isbns = input.split(/[\s,]+/).map(isbn => isbn.trim()).filter(isbn => isbn.length > 0);
+
+            if (isbns.length === 0) {
+                statusDiv.textContent = 'No valid ISBNs found.';
+                statusDiv.className = 'status error';
+                return;
+            }
+
+            statusDiv.textContent = `Fetching data for ${isbns.length} book(s). This may take a few minutes...`;
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'block';
+
+            // Clear existing books
+            const container = document.getElementById('books-container');
+            container.innerHTML = '';
+            bookCounter = 0;
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Fetch book data for each ISBN
+            for (let i = 0; i < isbns.length; i++) {
+                const isbn = isbns[i];
+
+                try {
+                    // Fetch from Open Library API
+                    const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+                    const data = await response.json();
+
+                    const bookData = data[`ISBN:${isbn}`];
+
+                    let title = '';
+                    let author = '';
+                    let coverUrl = '';
+                    let url = '';
+
+                    if (bookData) {
+                        title = bookData.title || '';
+                        author = bookData.authors ? bookData.authors.map(a => a.name).join(', ') : '';
+                        coverUrl = bookData.cover ? bookData.cover.large || bookData.cover.medium || bookData.cover.small || '' : '';
+                        // If no cover from API, use colorful placeholder
+                        if (!coverUrl) {
+                            coverUrl = 'data:image/svg+xml;base64,' + btoa(`
+                                <svg width="120" height="180" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="120" height="180" fill="#0e9383"/>
+                                    <rect x="10" y="15" width="100" height="150" fill="#0c8073" opacity="0.3"/>
+                                    <text x="60" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" opacity="0.8">📚</text>
+                                </svg>
+                            `);
+                        }
+                        // Leave URL blank - librarians will add their own links
+                        url = '';
+                        successCount++;
+                    } else {
+                        // Book not found, but still create an entry with ISBN
+                        title = `Book not found (ISBN: ${isbn})`;
+                        coverUrl = 'data:image/svg+xml;base64,' + btoa(`
+                            <svg width="120" height="180" xmlns="http://www.w3.org/2000/svg">
+                                <rect width="120" height="180" fill="#0e9383"/>
+                                <rect x="10" y="15" width="100" height="150" fill="#0c8073" opacity="0.3"/>
+                                <text x="60" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" opacity="0.8">📚</text>
+                            </svg>
+                        `);
+                        failCount++;
+                    }
+
+                    // Create book entry
+                    const entry = document.createElement('div');
+                    entry.className = 'link-entry';
+                    entry.setAttribute('data-book-index', i);
+
+                    const removeBtn = i > 0 ? '<button class="remove-link-btn" onclick="removeBookEntry(this)">Remove</button>' : '';
+
+                    // Generate default alt text
+                    const altText = title && author ? `Book cover of ${title} by ${author}` : (title ? `Book cover of ${title}` : '');
+
+                    entry.innerHTML = `
+                        <h4>Book ${i + 1}</h4>
+                        ${removeBtn}
+                        <div class="form-group">
+                            <label>Title:*</label>
+                            <input type="text" class="book-title-input" placeholder="Book title" value="${title.replace(/"/g, '&quot;')}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Author:</label>
+                                <input type="text" class="book-author-input" placeholder="Author name" value="${author.replace(/"/g, '&quot;')}">
+                            </div>
+                            <div class="form-group">
+                                <label>ISBN:</label>
+                                <input type="text" class="book-isbn-input" placeholder="ISBN" value="${isbn}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Image URL:</label>
+                            <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/..." value="${coverUrl}">
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Alt Text:</label>
+                            <input type="text" class="book-alt-input" placeholder="e.g., Book cover of [Title] by [Author]" value="${altText.replace(/"/g, '&quot;')}">
+                        </div>
+                        <div class="form-group">
+                            <label>Call Number (optional):</label>
+                            <input type="text" class="book-callnumber-input" placeholder="Call number" value="">
+                        </div>
+                        <div class="form-group">
+                            <label>URL/Permalink:</label>
+                            <input type="url" class="book-url-input" placeholder="https://..." value="${url}">
+                        </div>
+                    `;
+                    container.appendChild(entry);
+                    bookCounter = i;
+
+                } catch (error) {
+                    console.error(`Error fetching ISBN ${isbn}:`, error);
+                    failCount++;
+
+                    // Still create an entry even if fetch fails
+                    const entry = document.createElement('div');
+                    entry.className = 'link-entry';
+                    entry.setAttribute('data-book-index', i);
+
+                    const removeBtn = i > 0 ? '<button class="remove-link-btn" onclick="removeBookEntry(this)">Remove</button>' : '';
+
+                    entry.innerHTML = `
+                        <h4>Book ${i + 1}</h4>
+                        ${removeBtn}
+                        <div class="form-group">
+                            <label>Title:*</label>
+                            <input type="text" class="book-title-input" placeholder="Book title" value="Error fetching ISBN: ${isbn}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Author:</label>
+                                <input type="text" class="book-author-input" placeholder="Author name" value="">
+                            </div>
+                            <div class="form-group">
+                                <label>ISBN:</label>
+                                <input type="text" class="book-isbn-input" placeholder="ISBN" value="${isbn}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Image URL:</label>
+                            <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/..." value="data:image/svg+xml;base64,${btoa(`<svg width="120" height="180" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="180" fill="#0e9383"/><rect x="10" y="15" width="100" height="150" fill="#0c8073" opacity="0.3"/><text x="60" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" opacity="0.8">📚</text></svg>`)}">
+                        </div>
+                        <div class="form-group">
+                            <label>Cover Alt Text:</label>
+                            <input type="text" class="book-alt-input" placeholder="e.g., Book cover of [Title] by [Author]" value="">
+                        </div>
+                        <div class="form-group">
+                            <label>Call Number (optional):</label>
+                            <input type="text" class="book-callnumber-input" placeholder="Call number" value="">
+                        </div>
+                        <div class="form-group">
+                            <label>URL/Permalink:</label>
+                            <input type="url" class="book-url-input" placeholder="https://..." value="">
+                        </div>
+                    `;
+                    container.appendChild(entry);
+                    bookCounter = i;
+                }
+            }
+
+            if (successCount > 0) {
+                statusDiv.textContent = `Successfully fetched ${successCount} book(s)! ${failCount > 0 ? `(${failCount} not found)` : ''} Review and edit the details below.`;
+                statusDiv.className = 'status success';
+            } else {
+                statusDiv.textContent = `Failed to fetch book data. Please check your ISBNs and try again.`;
+                statusDiv.className = 'status error';
+            }
+        }
+
+        function formatBooks() {
+            const bookEntries = document.querySelectorAll('#books-container .link-entry');
+            const books = [];
+            let hasErrors = false;
+
+            // Get selected layout
+            const layout = document.querySelector('input[name="book-layout"]:checked').value;
+
+            bookEntries.forEach((entry, index) => {
+                const title = entry.querySelector('.book-title-input').value.trim();
+                const author = entry.querySelector('.book-author-input').value.trim();
+                const isbn = entry.querySelector('.book-isbn-input').value.trim();
+                const coverUrl = entry.querySelector('.book-cover-input').value.trim();
+                const altText = entry.querySelector('.book-alt-input').value.trim();
+                const callNumber = entry.querySelector('.book-callnumber-input').value.trim();
+                const url = entry.querySelector('.book-url-input').value.trim();
+
+                if (title) {
+                    books.push({ title, author, isbn, coverUrl, altText, callNumber, url });
+                } else {
+                    hasErrors = true;
+                }
+            });
+
+            if (books.length === 0) {
+                showStatus('books', 'Please add at least one book with a title.', 'error');
+                return;
+            }
+
+            if (hasErrors) {
+                showStatus('books', 'Some books are missing titles. Each book needs at least a title.', 'error');
+                return;
+            }
+
+            let output;
+
+            if (layout === 'horizontal') {
+                // Generate horizontal grid layout
+                output = formatBooksHorizontal(books);
+            } else {
+                // Generate vertical list layout (default)
+                output = formatBooksVertical(books);
+            }
+
+            document.getElementById('books-output').value = output;
+            showStatus('books', `Success! Formatted ${books.length} book(s) in ${layout} layout.`, 'success');
+        }
+
+        function formatBooksVertical(books) {
+            const formattedBooks = books.map((book, index) => {
+                const oddEvenClass = (index % 2 === 0) ? 'book-item-odd' : 'book-item-even';
+
+                let bookHTML = `<div class="book-item ${oddEvenClass}">
+    <div class="book-content">`;
+
+                // Add cover image if provided
+                if (book.coverUrl) {
+                    const imgAlt = book.altText || `Cover of ${book.title}`;
+                    bookHTML += `
+        <div class="book-cover">
+            <img src="${book.coverUrl}" alt="${imgAlt}" class="book-cover-img">
+        </div>`;
+                }
+
+                bookHTML += `
+        <div class="book-info">
+            <div class="book-main">
+                <div class="book-title">${book.title}</div>`;
+
+                // Add author with link styling
+                if (book.author) {
+                    bookHTML += `
+                <div class="book-author">${book.author}</div>`;
+                }
+
+                bookHTML += `
+            </div>
+            <div class="book-meta">`;
+
+                // Add book details
+                const details = [];
+                if (book.isbn) details.push(`ISBN: ${book.isbn}`);
+                if (book.callNumber) details.push(`Call Number: ${book.callNumber}`);
+
+                if (details.length > 0) {
+                    bookHTML += `
+                <div class="book-details">${details.join(' | ')}</div>`;
+                }
+
+                // Add View Book button if URL exists
+                if (book.url) {
+                    bookHTML += `
+                <a href="${book.url}" target="_blank" class="book-view-btn">View Book</a>`;
+                }
+
+                bookHTML += `
+            </div>
+        </div>
+    </div>
+</div>`;
+
+                return bookHTML;
+            });
+
+            return `<!---------- BEGIN BOOK LIST (VERTICAL) ---------->\n${formattedBooks.join('\n\n')}\n<!---------- END BOOK LIST ---------->`;
+        }
+
+        function formatBooksHorizontal(books) {
+            const formattedBooks = books.map((book) => {
+                let bookHTML = `    <div class="book-grid-item">`;
+
+                // Cover with optional link wrapper
+                if (book.coverUrl) {
+                    const imgAlt = book.altText || `Cover of ${book.title}`;
+                    if (book.url) {
+                        bookHTML += `
+        <div class="book-grid-cover">
+            <a href="${book.url}" target="_blank">
+                <img src="${book.coverUrl}" alt="${imgAlt}">
+            </a>
+        </div>`;
+                    } else {
+                        bookHTML += `
+        <div class="book-grid-cover">
+            <img src="${book.coverUrl}" alt="${imgAlt}">
+        </div>`;
+                    }
+                }
+
+                // Title with optional link
+                if (book.url) {
+                    bookHTML += `
+        <div class="book-grid-title"><a href="${book.url}" target="_blank">${book.title}</a></div>`;
+                } else {
+                    bookHTML += `
+        <div class="book-grid-title">${book.title}</div>`;
+                }
+
+                // Author
+                if (book.author) {
+                    bookHTML += `
+        <div class="book-grid-author">${book.author}</div>`;
+                }
+
+                bookHTML += `
+    </div>`;
+
+                return bookHTML;
+            });
+
+            return `<!---------- BEGIN BOOK LIST (HORIZONTAL) ---------->
+<div class="book-grid">
+${formattedBooks.join('\n')}
+</div>
+<!---------- END BOOK LIST ---------->`;
+        }
+
+        function previewBooks() {
+            const output = document.getElementById('books-output').value;
+            const previewSection = document.getElementById('books-preview');
+            const previewContainer = document.getElementById('books-preview-container');
+
+            if (!output) {
+                showStatus('books', 'Please format your book list first.', 'error');
+                previewSection.classList.remove('show');
+                return;
+            }
+
+            previewContainer.innerHTML = output;
+            previewSection.classList.add('show');
+            previewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function copyBooks() {
+            const output = document.getElementById('books-output');
+            if (!output.value) {
+                showStatus('books', 'Nothing to copy. Please format your book list first.', 'error');
+                return;
+            }
+            output.select();
+            document.execCommand('copy');
+            showStatus('books', 'Copied to clipboard!', 'success');
+        }
+
+        function clearBooks() {
+            // Reset to single empty book entry
+            document.getElementById('books-container').innerHTML = `
+                <div class="link-entry" data-book-index="0">
+                    <h4>Book 1</h4>
+                    <div class="form-group">
+                        <label>Title:*</label>
+                        <input type="text" class="book-title-input" placeholder="Book title">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Author:</label>
+                            <input type="text" class="book-author-input" placeholder="Author name">
+                        </div>
+                        <div class="form-group">
+                            <label>ISBN:</label>
+                            <input type="text" class="book-isbn-input" placeholder="ISBN">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cover Image URL:</label>
+                        <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/...">
+                    </div>
+                    <div class="form-group">
+                        <label>Cover Alt Text:</label>
+                        <input type="text" class="book-alt-input" placeholder="e.g., Book cover of [Title] by [Author]">
+                    </div>
+                    <div class="form-group">
+                        <label>Call Number (optional):</label>
+                        <input type="text" class="book-callnumber-input" placeholder="Call number">
+                    </div>
+                    <div class="form-group">
+                        <label>URL/Permalink:</label>
+                        <input type="url" class="book-url-input" placeholder="https://...">
+                    </div>
+                </div>
+            `;
+            bookCounter = 1;
+            document.getElementById('isbn-input').value = '';
+            document.getElementById('books-output').value = '';
+            document.getElementById('books-preview-container').innerHTML = '';
+            document.getElementById('books-preview').classList.remove('show');
+            document.getElementById('books-status').style.display = 'none';
+            document.getElementById('books-upload-status').style.display = 'none';
+        }
+
+        // ===== EVENT TAB FUNCTIONS =====
+        function formatEvent() {
+            const title = document.getElementById('event-title').value.trim();
+            const date = document.getElementById('event-date').value;
+            const time = document.getElementById('event-time').value;
+            const location = document.getElementById('event-location').value.trim();
+            const description = document.getElementById('event-description').value.trim();
+            const link = document.getElementById('event-link').value.trim();
+            const linkText = document.getElementById('event-link-text').value.trim() || 'Learn More';
+
+            if (!title || !date || !description) {
+                showStatus('event', 'Please fill in all required fields (Title, Date, Description).', 'error');
+                return;
+            }
+
+            // Format date for calendar box
+            const dateObj = new Date(date + 'T00:00:00');
+            const day = dateObj.getDate();
+            const monthShort = dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+
+            // Format full date for display
+            const fullDate = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Build meta information
+            let metaHTML = '';
+            metaHTML += `<div class="event-meta-item"><strong>Date:</strong> ${fullDate}</div>`;
+
+            if (time) {
+                metaHTML += `<div class="event-meta-item"><strong>Time:</strong> ${time}</div>`;
+            }
+
+            if (location) {
+                metaHTML += `<div class="event-meta-item"><strong>Location:</strong> ${location}</div>`;
+            }
+
+            // Format link if provided
+            let linkHTML = '';
+            if (link) {
+                linkHTML = `<div><a href="${link}" class="event-link">${linkText}</a></div>`;
+            }
+
+            const html = `<!---------- BEGIN EVENT --------->
+<div class="event-item">
+    <div class="event-date-box">
+        <div class="event-day">${day}</div>
+        <div class="event-month">${monthShort}</div>
+    </div>
+    <div class="event-content">
+        <div class="event-title">${title}</div>
+        <div class="event-meta">
+            ${metaHTML}
+        </div>
+        <div class="event-description">${description}</div>
+        ${linkHTML}
+    </div>
+</div>
+<!-- END EVENT -->`;
+
+            document.getElementById('event-output').value = html;
+            showStatus('event', 'Event formatted successfully!', 'success');
+        }
+
+        function previewEvent() {
+            const output = document.getElementById('event-output').value;
+            const previewSection = document.getElementById('event-preview');
+            const previewContainer = document.getElementById('event-preview-container');
+
+            if (!output) {
+                showStatus('event', 'Please format your event first.', 'error');
+                previewSection.classList.remove('show');
+                return;
+            }
+
+            previewContainer.innerHTML = output;
+            previewSection.classList.add('show');
+            previewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function copyEvent() {
+            const output = document.getElementById('event-output');
+            if (!output.value) {
+                showStatus('event', 'Nothing to copy. Please format your event first.', 'error');
+                return;
+            }
+            output.select();
+            document.execCommand('copy');
+            showStatus('event', 'Copied to clipboard!', 'success');
+        }
+
+        function clearEvent() {
+            document.getElementById('event-title').value = '';
+            document.getElementById('event-date').value = '';
+            document.getElementById('event-time').value = '';
+            document.getElementById('event-location').value = '';
+            document.getElementById('event-description').value = '';
+            document.getElementById('event-link').value = '';
+            document.getElementById('event-link-text').value = '';
+            document.getElementById('event-output').value = '';
+            document.getElementById('event-preview-container').innerHTML = '';
+            document.getElementById('event-preview').classList.remove('show');
+            document.getElementById('event-status').style.display = 'none';
+            document.getElementById('ics-file-input').value = '';
+            document.getElementById('ics-status').style.display = 'none';
+        }
+
+        function handleICSUpload(event) {
+            const file = event.target.files[0];
+            const icsStatusDiv = document.getElementById('ics-status');
+
+            if (!file) {
+                return;
+            }
+
+            if (!file.name.endsWith('.ics')) {
+                icsStatusDiv.textContent = 'Please upload a valid .ics file.';
+                icsStatusDiv.className = 'status error';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const icsData = e.target.result;
+                    const jcalData = ICAL.parse(icsData);
+                    const comp = new ICAL.Component(jcalData);
+                    const vevent = comp.getFirstSubcomponent('vevent');
+
+                    if (!vevent) {
+                        icsStatusDiv.textContent = 'No event found in ICS file.';
+                        icsStatusDiv.className = 'status error';
+                        return;
+                    }
+
+                    const event = new ICAL.Event(vevent);
+
+                    // Extract event details
+                    const title = event.summary || '';
+                    const location = event.location || '';
+                    const description = event.description || '';
+
+                    // Extract start date/time
+                    const startDate = event.startDate;
+                    if (startDate) {
+                        // Format date as YYYY-MM-DD for input[type="date"]
+                        const year = startDate.year;
+                        const month = String(startDate.month).padStart(2, '0');
+                        const day = String(startDate.day).padStart(2, '0');
+                        document.getElementById('event-date').value = `${year}-${month}-${day}`;
+
+                        // Format time as HH:MM for input[type="time"]
+                        const hour = String(startDate.hour).padStart(2, '0');
+                        const minute = String(startDate.minute).padStart(2, '0');
+                        document.getElementById('event-time').value = `${hour}:${minute}`;
+                    }
+
+                    // Populate form fields
+                    document.getElementById('event-title').value = title;
+                    document.getElementById('event-location').value = location;
+                    document.getElementById('event-description').value = description;
+
+                    // Check for URL in event
+                    if (event.url) {
+                        document.getElementById('event-link').value = event.url;
+                    }
+
+                    icsStatusDiv.textContent = 'ICS file loaded successfully! Review and edit the details below.';
+                    icsStatusDiv.className = 'status success';
+
+                } catch (error) {
+                    icsStatusDiv.textContent = 'Error parsing ICS file: ' + error.message;
+                    icsStatusDiv.className = 'status error';
+                }
+            };
+
+            reader.onerror = function() {
+                icsStatusDiv.textContent = 'Error reading file.';
+                icsStatusDiv.className = 'status error';
+            };
+
+            reader.readAsText(file);
+        }
+
+        // ===== LINKS TAB FUNCTIONS =====
+        function addLinkEntry() {
+            linkCounter++;
+            const container = document.getElementById('links-container');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'link-entry';
+            newEntry.setAttribute('data-link-index', linkCounter);
+            newEntry.innerHTML = `
+                <h4>Link ${linkCounter + 1}</h4>
+                <button class="remove-link-btn" onclick="removeLinkEntry(this)">Remove</button>
+                <div class="form-group">
+                    <label>Link Title:*</label>
+                    <input type="text" class="link-title-input" placeholder="e.g., ACM Digital Library">
+                </div>
+                <div class="form-group">
+                    <label>URL:*</label>
+                    <input type="url" class="link-url-input" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea class="link-desc-input" style="min-height: 80px;" placeholder="Brief description of this resource..."></textarea>
+                </div>
+            `;
+            container.appendChild(newEntry);
+        }
+
+        function removeLinkEntry(button) {
+            button.parentElement.remove();
+        }
+
+        async function fetchLinksFromURLs() {
+            const input = document.getElementById('url-input').value.trim();
+            const statusDiv = document.getElementById('links-upload-status');
+
+            if (!input) {
+                statusDiv.textContent = 'Please enter at least one URL.';
+                statusDiv.className = 'status error';
+                return;
+            }
+
+            // Parse URLs - split by newline or comma
+            const urls = input.split(/[\n,]+/).map(url => url.trim()).filter(url => url.length > 0);
+
+            if (urls.length === 0) {
+                statusDiv.textContent = 'No valid URLs found.';
+                statusDiv.className = 'status error';
+                return;
+            }
+
+            statusDiv.textContent = `Fetching data for ${urls.length} link(s). This may take a few minutes...`;
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'block';
+
+            // Clear existing links
+            const container = document.getElementById('links-container');
+            container.innerHTML = '';
+            linkCounter = 0;
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Fetch metadata for each URL
+            for (let i = 0; i < urls.length; i++) {
+                const url = urls[i];
+
+                try {
+                    // Use Microlink API to fetch metadata (free tier, no auth needed)
+                    const response = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
+                    const data = await response.json();
+
+                    let title = '';
+                    let description = '';
+
+                    if (data.status === 'success' && data.data) {
+                        title = data.data.title || url;
+                        description = data.data.description || '';
+                        successCount++;
+                    } else {
+                        // Fallback if API fails
+                        title = url;
+                        description = '';
+                        failCount++;
+                    }
+
+                    // Create link entry
+                    const entry = document.createElement('div');
+                    entry.className = 'link-entry';
+                    entry.setAttribute('data-link-index', i);
+
+                    const removeBtn = i > 0 ? '<button class="remove-link-btn" onclick="removeLinkEntry(this)">Remove</button>' : '';
+
+                    entry.innerHTML = `
+                        <h4>Link ${i + 1}</h4>
+                        ${removeBtn}
+                        <div class="form-group">
+                            <label>Link Title:*</label>
+                            <input type="text" class="link-title-input" placeholder="e.g., ACM Digital Library" value="${title.replace(/"/g, '&quot;')}">
+                        </div>
+                        <div class="form-group">
+                            <label>URL:*</label>
+                            <input type="url" class="link-url-input" placeholder="https://..." value="${url}">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="link-desc-input" style="min-height: 80px;" placeholder="Brief description of this resource...">${description}</textarea>
+                        </div>
+                    `;
+                    container.appendChild(entry);
+                    linkCounter = i;
+
+                } catch (error) {
+                    console.error(`Error fetching URL ${url}:`, error);
+                    failCount++;
+
+                    // Still create an entry even if fetch fails
+                    const entry = document.createElement('div');
+                    entry.className = 'link-entry';
+                    entry.setAttribute('data-link-index', i);
+
+                    const removeBtn = i > 0 ? '<button class="remove-link-btn" onclick="removeLinkEntry(this)">Remove</button>' : '';
+
+                    entry.innerHTML = `
+                        <h4>Link ${i + 1}</h4>
+                        ${removeBtn}
+                        <div class="form-group">
+                            <label>Link Title:*</label>
+                            <input type="text" class="link-title-input" placeholder="e.g., ACM Digital Library" value="${url}">
+                        </div>
+                        <div class="form-group">
+                            <label>URL:*</label>
+                            <input type="url" class="link-url-input" placeholder="https://..." value="${url}">
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="link-desc-input" style="min-height: 80px;" placeholder="Brief description of this resource..."></textarea>
+                        </div>
+                    `;
+                    container.appendChild(entry);
+                    linkCounter = i;
+                }
+            }
+
+            if (successCount > 0) {
+                statusDiv.textContent = `Successfully fetched ${successCount} link(s)! ${failCount > 0 ? `(${failCount} could not be fetched)` : ''} Review and edit the details below.`;
+                statusDiv.className = 'status success';
+            } else {
+                statusDiv.textContent = `Could not fetch link data. Please check your URLs and try again, or fill in manually.`;
+                statusDiv.className = 'status error';
+            }
+        }
+
+        function formatLinks() {
+            const sectionTitle = document.getElementById('links-section-title').value.trim();
+            const linkEntries = document.querySelectorAll('#links-container .link-entry');
+
+            const links = [];
+            let hasErrors = false;
+
+            linkEntries.forEach((entry, index) => {
+                const title = entry.querySelector('.link-title-input').value.trim();
+                const url = entry.querySelector('.link-url-input').value.trim();
+                const description = entry.querySelector('.link-desc-input').value.trim();
+
+                if (title && url) {
+                    links.push({ title, url, description });
+                } else if (title || url) {
+                    hasErrors = true;
+                }
+            });
+
+            if (links.length === 0) {
+                showStatus('links', 'Please add at least one link with a title and URL.', 'error');
+                return;
+            }
+
+            if (hasErrors) {
+                showStatus('links', 'Some links are incomplete. Each link needs both a title and URL.', 'error');
+                return;
+            }
+
+            let html = '<!---------- BEGIN LINK SECTION ---------->\n<div class="link-section">\n';
+
+            if (sectionTitle) {
+                html += `    <div class="link-section-title">${sectionTitle}</div>\n`;
+            }
+
+            links.forEach(link => {
+                html += `    <div class="link-item">\n`;
+                html += `        <div class="link-title"><a href="${link.url}" target="_blank">${link.title}</a></div>\n`;
+                if (link.description) {
+                    html += `        <div class="link-description">${link.description}</div>\n`;
+                }
+                html += `    </div>\n`;
+            });
+
+            html += '</div>\n<!---------- END LINK SECTION ---------->';
+
+            document.getElementById('links-output').value = html;
+            showStatus('links', `Successfully formatted ${links.length} link(s)!`, 'success');
+        }
+
+        function previewLinks() {
+            const output = document.getElementById('links-output').value;
+            const previewSection = document.getElementById('links-preview');
+            const previewContainer = document.getElementById('links-preview-container');
+
+            if (!output) {
+                showStatus('links', 'Please format your links first.', 'error');
+                previewSection.classList.remove('show');
+                return;
+            }
+
+            previewContainer.innerHTML = output;
+            previewSection.classList.add('show');
+            previewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function copyLinks() {
+            const output = document.getElementById('links-output');
+            if (!output.value) {
+                showStatus('links', 'Nothing to copy. Please format your links first.', 'error');
+                return;
+            }
+            output.select();
+            document.execCommand('copy');
+            showStatus('links', 'Copied to clipboard!', 'success');
+        }
+
+        function clearLinks() {
+            document.getElementById('links-section-title').value = '';
+            document.getElementById('url-input').value = '';
+            document.getElementById('links-container').innerHTML = `
+                <div class="link-entry" data-link-index="0">
+                    <h4>Link 1</h4>
+                    <div class="form-group">
+                        <label>Link Title:*</label>
+                        <input type="text" class="link-title-input" placeholder="e.g., ACM Digital Library">
+                    </div>
+                    <div class="form-group">
+                        <label>URL:*</label>
+                        <input type="url" class="link-url-input" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea class="link-desc-input" style="min-height: 80px;" placeholder="Brief description of this resource..."></textarea>
+                    </div>
+                </div>
+            `;
+            linkCounter = 1;
+            document.getElementById('links-output').value = '';
+            document.getElementById('links-preview-container').innerHTML = '';
+            document.getElementById('links-preview').classList.remove('show');
+            document.getElementById('links-status').style.display = 'none';
+            document.getElementById('links-upload-status').style.display = 'none';
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+        function showStatus(tab, message, type) {
+            const statusDiv = document.getElementById(tab + '-status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+    </script>
+</body>
+</html>
