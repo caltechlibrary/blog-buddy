@@ -247,4 +247,4 @@ If you encounter any issues or have questions, please contact the web team.
 ---
 
 **Last Updated:** February 2026
-**Version:** 4.0 - UI overhaul with Pico CSS, layout options for books, improved step-based workflow
+**Version:** .5 - Added the Three Card Component as a content type
