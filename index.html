@@ -94,6 +94,7 @@
         .preview-container .book-cover-img { width: 120px; height: auto; border-radius: 4px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); }
         .preview-container .book-info { flex: 1; display: flex; flex-direction: column; gap: 0.75rem; }
         .preview-container .book-title { font-size: 1.25rem; font-weight: bold; }
+        .preview-container .book-description { font-size: 0.9rem; color: #555; line-height: 1.6; margin-top: 4px; }
         .preview-container .book-view-btn { display: inline-block; background: #2a8a99; color: white; padding: 0.35rem 1rem; border-radius: 3px; text-decoration: none; font-size: 0.9rem; width: fit-content; }
 
         .preview-container .event-item { display: flex; gap: 1.25rem; padding: 1.25rem; margin-bottom: 1.25rem; background: #f7f9fb; border: 1px solid #e0e0e0; border-radius: 5px; }
@@ -102,8 +103,10 @@
         .preview-container .event-month { font-size: 0.9rem; text-transform: uppercase; margin-top: 4px; }
         .preview-container .event-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 0.5rem; }
         .preview-container .event-meta { font-size: 0.95rem; margin-bottom: 0.75rem; line-height: 1.6; }
+        .preview-container .event-meta strong { color: #2a8a99; }
 
-        .preview-container .link-section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e0e0e0; }
+        .preview-container .link-section-title { font-size: 1.25rem; font-weight: bold; color: #333; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e0e0e0; }
+        .preview-container .link-title a { color: #2a8a99; text-decoration: none; }
         .preview-container .link-item { padding: 1rem; margin-bottom: 0.75rem; border: 1px solid #e0e0e0; border-radius: 5px; }
         .preview-container .link-title::before { content: "🔗 "; }
 
@@ -175,6 +178,10 @@
                                 <label>ISBN:</label>
                                 <input type="text" class="book-isbn-input" placeholder="ISBN">
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="book-desc-input" style="min-height: 80px;" placeholder="Brief description of the book..."></textarea>
                         </div>
                         <div class="form-group">
                             <label>Cover Image URL:</label>
@@ -570,6 +577,10 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Description:</label>
+                    <textarea class="book-desc-input" style="min-height: 80px;" placeholder="Brief description of the book..."></textarea>
+                </div>
+                <div class="form-group">
                     <label>Cover Image URL:</label>
                     <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/...">
                 </div>
@@ -639,6 +650,7 @@
                     let author = '';
                     let coverUrl = '';
                     let url = '';
+                    let description = '';
 
                     if (bookData) {
                         title = bookData.title || '';
@@ -656,6 +668,38 @@
                         }
                         // Leave URL blank - librarians will add their own links
                         url = '';
+
+                        // Fetch description: try Google Books first, fall back to Open Library work
+                        try {
+                            const gbResponse = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+                            const gbData = await gbResponse.json();
+                            if (gbData.items && gbData.items.length > 0) {
+                                description = gbData.items[0].volumeInfo.description || '';
+                            }
+                        } catch (e) {
+                            // Google Books unavailable
+                        }
+
+                        if (!description) {
+                            try {
+                                const editionResponse = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+                                const editionData = await editionResponse.json();
+                                if (editionData.works && editionData.works.length > 0) {
+                                    const workResponse = await fetch(`https://openlibrary.org${editionData.works[0].key}.json`);
+                                    const workData = await workResponse.json();
+                                    if (workData.description) {
+                                        const raw = typeof workData.description === 'string'
+                                            ? workData.description
+                                            : (workData.description.value || '');
+                                        // Filter out physical descriptions (e.g. "150 p. : ill. ; 20 cm.")
+                                        if (raw.length > 100) description = raw;
+                                    }
+                                }
+                            } catch (e) {
+                                // Description unavailable
+                            }
+                        }
+
                         successCount++;
                     } else {
                         // Book not found, but still create an entry with ISBN
@@ -696,6 +740,10 @@
                                 <label>ISBN:</label>
                                 <input type="text" class="book-isbn-input" placeholder="ISBN" value="${isbn}">
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="book-desc-input" style="min-height: 80px;" placeholder="Brief description of the book...">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                         </div>
                         <div class="form-group">
                             <label>Cover Image URL:</label>
@@ -746,6 +794,10 @@
                             </div>
                         </div>
                         <div class="form-group">
+                            <label>Description:</label>
+                            <textarea class="book-desc-input" style="min-height: 80px;" placeholder="Brief description of the book..."></textarea>
+                        </div>
+                        <div class="form-group">
                             <label>Cover Image URL:</label>
                             <input type="url" class="book-cover-input" placeholder="https://covers.openlibrary.org/b/isbn/..." value="data:image/svg+xml;base64,${btoa(`<svg width="120" height="180" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="180" fill="#0e9383"/><rect x="10" y="15" width="100" height="150" fill="#0c8073" opacity="0.3"/><text x="60" y="100" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" opacity="0.8">📚</text></svg>`)}">
                         </div>
@@ -788,13 +840,14 @@
                 const title = entry.querySelector('.book-title-input').value.trim();
                 const author = entry.querySelector('.book-author-input').value.trim();
                 const isbn = entry.querySelector('.book-isbn-input').value.trim();
+                const description = entry.querySelector('.book-desc-input').value.trim();
                 const coverUrl = entry.querySelector('.book-cover-input').value.trim();
                 const altText = entry.querySelector('.book-alt-input').value.trim();
                 const callNumber = entry.querySelector('.book-callnumber-input').value.trim();
                 const url = entry.querySelector('.book-url-input').value.trim();
 
                 if (title) {
-                    books.push({ title, author, isbn, coverUrl, altText, callNumber, url });
+                    books.push({ title, author, isbn, description, coverUrl, altText, callNumber, url });
                 } else {
                     hasErrors = true;
                 }
@@ -849,6 +902,11 @@
                 if (book.author) {
                     bookHTML += `
                 <div class="book-author">${book.author}</div>`;
+                }
+
+                if (book.description) {
+                    bookHTML += `
+                <div class="book-description">${book.description}</div>`;
                 }
 
                 bookHTML += `
@@ -920,6 +978,11 @@
         <div class="book-grid-author">${book.author}</div>`;
                 }
 
+                if (book.description) {
+                    bookHTML += `
+        <div class="book-description">${book.description}</div>`;
+                }
+
                 bookHTML += `
     </div>`;
 
@@ -978,6 +1041,10 @@ ${formattedBooks.join('\n')}
                             <label>ISBN:</label>
                             <input type="text" class="book-isbn-input" placeholder="ISBN">
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea class="book-desc-input" style="min-height: 80px;" placeholder="Brief description of the book..."></textarea>
                     </div>
                     <div class="form-group">
                         <label>Cover Image URL:</label>
@@ -1039,7 +1106,8 @@ ${formattedBooks.join('\n')}
             metaHTML += `<div class="event-meta-item"><strong>Date:</strong> ${fullDate}</div>`;
 
             if (time) {
-                metaHTML += `<div class="event-meta-item"><strong>Time:</strong> ${time}</div>`;
+                const tzAbbr = getPacificTZAbbr(date);
+                metaHTML += `<div class="event-meta-item"><strong>Time:</strong> ${formatTime12h(time)} ${tzAbbr}</div>`;
             }
 
             if (location) {
@@ -1151,18 +1219,24 @@ ${formattedBooks.join('\n')}
                     const location = event.location || '';
                     const description = event.description || '';
 
-                    // Extract start date/time
+                    // Extract start date/time, always in Pacific time
                     const startDate = event.startDate;
                     if (startDate) {
-                        // Format date as YYYY-MM-DD for input[type="date"]
-                        const year = startDate.year;
-                        const month = String(startDate.month).padStart(2, '0');
-                        const day = String(startDate.day).padStart(2, '0');
-                        document.getElementById('event-date').value = `${year}-${month}-${day}`;
+                        const jsDate = startDate.toJSDate();
+                        const pacificParts = new Intl.DateTimeFormat('en-US', {
+                            timeZone: 'America/Los_Angeles',
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit', hour12: false
+                        }).formatToParts(jsDate);
 
-                        // Format time as HH:MM for input[type="time"]
-                        const hour = String(startDate.hour).padStart(2, '0');
-                        const minute = String(startDate.minute).padStart(2, '0');
+                        const year   = pacificParts.find(p => p.type === 'year').value;
+                        const month  = pacificParts.find(p => p.type === 'month').value;
+                        const day    = pacificParts.find(p => p.type === 'day').value;
+                        let   hour   = pacificParts.find(p => p.type === 'hour').value;
+                        const minute = pacificParts.find(p => p.type === 'minute').value;
+                        if (hour === '24') hour = '00';
+
+                        document.getElementById('event-date').value = `${year}-${month}-${day}`;
                         document.getElementById('event-time').value = `${hour}:${minute}`;
                     }
 
@@ -1568,6 +1642,24 @@ ${attributes.join('\n')}
         }
 
         // ===== UTILITY FUNCTIONS =====
+        function formatTime12h(time24) {
+            if (!time24) return '';
+            const [hours, minutes] = time24.split(':');
+            const h = parseInt(hours);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${minutes} ${ampm}`;
+        }
+
+        function getPacificTZAbbr(dateStr) {
+            const d = new Date(dateStr + 'T12:00:00');
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Los_Angeles',
+                timeZoneName: 'short'
+            }).formatToParts(d);
+            return parts.find(p => p.type === 'timeZoneName')?.value || 'PT';
+        }
+
         function showStatus(tab, message, type) {
             const statusDiv = document.getElementById(tab + '-status');
             statusDiv.textContent = message;

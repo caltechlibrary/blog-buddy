@@ -71,6 +71,14 @@
     font-size: 1rem;
 }
 
+/* Book description styling */
+.book-description {
+    color: #555;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-top: 4px;
+}
+
 /* Book metadata section */
 .book-meta {
     display: flex;
@@ -252,7 +260,7 @@
 }
 
 .event-meta strong {
-    color: #0066cc;
+    color: #2a8a99;
     margin-right: 5px;
 }
 
@@ -284,7 +292,7 @@
 .link-section-title {
     font-size: 1.3rem;
     font-weight: bold;
-    color: #0066cc;
+    color: #333;
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 2px solid #e0e0e0;
@@ -316,7 +324,7 @@
 }
 
 .link-title a {
-    color: #0066cc;
+    color: #2a8a99;
     text-decoration: none;
 }
 
