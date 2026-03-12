@@ -96,7 +96,7 @@
 /* View Book button */
 .book-view-btn {
     display: inline-block;
-    background-color: #3b7c0f;
+    background-color: #2a8a99;
     color: white;
     padding: 10px 20px;
     border-radius: 4px;
@@ -108,7 +108,9 @@
 }
 
 .book-view-btn:hover {
-    background-color: #2d6009;
+    background-color: #2a8a99;
+    color: white !important;
+    text-decoration: underline !important;
 }
 
 /* Book cover image styling with drop shadow (legacy SpringShare support) */
